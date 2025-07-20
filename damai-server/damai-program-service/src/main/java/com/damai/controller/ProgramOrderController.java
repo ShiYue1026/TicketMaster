@@ -29,19 +29,19 @@ public class ProgramOrderController {
     @Operation(summary = "购票V2")
     @PostMapping(value = "/create/v2")
     public ApiResponse<String> createV2(@Valid @RequestBody ProgramOrderCreateDto programOrderCreateDto) {
-        return ApiResponse.ok(programOrderService.createV2(programOrderCreateDto));
+        return ApiResponse.ok(programOrderService.createV1(programOrderCreateDto));
     }
 
     @Operation(summary = "购票V3")
     @PostMapping(value = "/create/v3")
     public ApiResponse<String> createV3(@Valid @RequestBody ProgramOrderCreateDto programOrderCreateDto) {
-        return ApiResponse.ok(programOrderService.createV3(programOrderCreateDto));
+        return ApiResponse.ok(programOrderService.createV1(programOrderCreateDto));
     }
 
     @Operation(summary = "购票V4")
     @PostMapping(value = "/create/v4")
     public ApiResponse<String> createV4(@Valid @RequestBody ProgramOrderCreateDto programOrderCreateDto) {
-        return ApiResponse.ok(programOrderService.createV4(programOrderCreateDto));
+        return ApiResponse.ok(programOrderService.createV1(programOrderCreateDto));
     }
 
 

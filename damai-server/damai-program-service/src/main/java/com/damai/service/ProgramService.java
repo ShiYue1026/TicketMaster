@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.damai.BusinessThreadPool;
+import com.damai.RedisStreamPushHandler;
 import com.damai.client.BaseDataClient;
 import com.damai.client.OrderClient;
 import com.damai.client.UserClient;
@@ -30,10 +31,7 @@ import com.damai.page.PageVo;
 import com.damai.redis.RedisCache;
 import com.damai.redis.RedisKeyBuild;
 import com.damai.repeatexecutelimit.annotation.RepeatExecuteLimit;
-import com.damai.service.cache.local.LocalCacheProgram;
-import com.damai.service.cache.local.LocalCacheProgramCategory;
-import com.damai.service.cache.local.LocalCacheProgramGroup;
-import com.damai.service.cache.local.LocalCacheProgramShowTime;
+import com.damai.service.cache.local.*;
 import com.damai.service.es.ProgramEs;
 import com.damai.service.tool.TokenExpireManager;
 import com.damai.servicelock.LockType;
@@ -133,6 +131,15 @@ public class ProgramService extends ServiceImpl<ProgramMapper, Program> {
     @Autowired
     private TokenExpireManager tokenExpireManager;
 
+    @Autowired
+    private RedisStreamPushHandler redisStreamPushHandler;
+
+    @Autowired
+    private LocalCacheProgramShowTime localCacheProgramShowTime;
+
+    @Autowired
+    private LocalCacheTicketCategory localCacheTicketCategory;
+
     /**
      * 查询主页信息
      * @param programListDto 查询节目数据的入参
@@ -161,8 +168,6 @@ public class ProgramService extends ServiceImpl<ProgramMapper, Program> {
 
         // 根据area_id和parent_id去表中查找符合条件的节目
          List<Program> programList = programMapper.selectHomeList(programPageListDto);
-
-         System.out.println(programList);
 
          if (CollectionUtil.isEmpty(programList)) {
              return programHomeVoList;
@@ -534,6 +539,7 @@ public class ProgramService extends ServiceImpl<ProgramMapper, Program> {
     }
 
     public ProgramVo getByIdMultipleCache(Long programId, Date showTime){
+        log.info("从本地缓存查询节目详情");
         return localCacheProgram.getCache(RedisKeyBuild.createRedisKey(RedisKeyManage.PROGRAM, programId).getRelKey(),
                 key -> {
                     log.info("查询节目详情 从本地缓存没有查询到 节目id : {}",programId);
@@ -662,7 +668,7 @@ public class ProgramService extends ServiceImpl<ProgramMapper, Program> {
         return programGroupVo;
     }
 
-    @ServiceLock(lockType= LockType.Read,name = PROGRAM_LOCK, keys = {"#programId"})
+    @ServiceLock(lockType= LockType.Read, name = PROGRAM_LOCK, keys = {"#programId"})
     public ProgramVo getById(Long programId, Long expireTime, TimeUnit timeUnit) {
         ProgramVo programVo = redisCache.get(RedisKeyBuild.createRedisKey(RedisKeyManage.PROGRAM, programId), ProgramVo.class);
         if(Objects.nonNull(programVo)){
@@ -768,5 +774,32 @@ public class ProgramService extends ServiceImpl<ProgramMapper, Program> {
         if(updateRemainNumberCount != ticketCategoryCountDtoList.size()){
             throw new DaMaiFrameException(BaseCode.SEAT_UPDATE_REL_COUNT_NOT_EQUAL_PRESET_COUNT);
         }
+    }
+
+    public Boolean invalid(ProgramInvalidDto programInvalidDto) {
+        Program updateProgram = new Program();
+        updateProgram.setId(programInvalidDto.getId());
+        updateProgram.setProgramStatus(BusinessStatus.NO.getCode());
+        int result = programMapper.updateById(updateProgram);
+        if(result > 0){
+            delRedisData(programInvalidDto.getId());
+            redisStreamPushHandler.push(String.valueOf(programInvalidDto.getId()));
+            programEs.deleteByProgramId(programInvalidDto.getId());
+            return true;
+        } else{
+            return false;
+        }
+    }
+
+    public ProgramVo localDetail(ProgramGetDto programGetDto) {
+        return localCacheProgram.getCache(RedisKeyBuild.createRedisKey(RedisKeyManage.PROGRAM, programGetDto.getId()).getRelKey());
+    }
+
+    public void delLocalCache(Long programId) {
+        log.info("删除本地缓存 programId: {}", programId);
+        localCacheProgram.del(RedisKeyBuild.createRedisKey(RedisKeyManage.PROGRAM, programId).getRelKey());
+        localCacheProgramGroup.del(RedisKeyBuild.createRedisKey(RedisKeyManage.PROGRAM_GROUP, programId).getRelKey());
+        localCacheProgramShowTime.del(RedisKeyBuild.createRedisKey(RedisKeyManage.PROGRAM_SHOW_TIME, programId).getRelKey());
+        localCacheTicketCategory.del(programId);
     }
 }

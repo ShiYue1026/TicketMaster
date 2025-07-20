@@ -12,7 +12,7 @@ public class LocalLockCache {
 
     private Cache<String, ReentrantLock> localLockCache;
 
-    @Value("${durationTime:48}")
+    @Value("${durationTime:2}")
     private Integer durationTime;
 
     @PostConstruct
@@ -22,8 +22,8 @@ public class LocalLockCache {
                 .build();
     }
 
-    public ReentrantLock getLock(String lockKey, boolean fair) {
-        return localLockCache.get(lockKey, key -> new ReentrantLock(fair));
-    }
+public ReentrantLock getLock(String lockKey, boolean fair) {
+    return localLockCache.get(lockKey, key -> new ReentrantLock(fair));
+}
 
 }

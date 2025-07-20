@@ -35,6 +35,7 @@ public class RedissonCommonAutoConfiguration {
                 .setConnectTimeout(1000)
                 .setDatabase(redisProperties.getDatabase());
 //                .setPassword(redisProperties.getPassword());
+
         config.setThreads(redissonBaseProperties.getThreads());
         config.setNettyThreads(redissonBaseProperties.getNettyThreads());
         if (Objects.nonNull(redissonBaseProperties.getCorePoolSize()) &&

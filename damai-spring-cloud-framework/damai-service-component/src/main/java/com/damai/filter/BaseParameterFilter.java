@@ -35,9 +35,6 @@ public class BaseParameterFilter extends OncePerRequestFilter {
         String gray = request.getHeader(GRAY_PARAMETER);
         String userId = request.getHeader("user_id");
         String code = request.getHeader(CODE);
-        log.info("TRACE_ID:{}", traceId);
-        log.info("USER_ID:{}", userId);
-        log.info("CODE:{}", code);
 
         try{
             if(StringUtil.isNotEmpty(traceId)) {

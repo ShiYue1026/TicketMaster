@@ -39,8 +39,10 @@ public class TicketCategoryService extends ServiceImpl<TicketCategoryMapper, Tic
 
     @Autowired
     private ServiceLockTool serviceLockTool;
+
     @Autowired
     private TicketCategoryMapper ticketCategoryMapper;
+
     @Autowired
     private LocalCacheTicketCategory localCacheTicketCategory;
 

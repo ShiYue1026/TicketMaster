@@ -1,4 +1,4 @@
-package com.damai.service.composite.impl;
+package com.damai.service.composite.chain;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.alibaba.fastjson.JSON;
@@ -15,7 +15,6 @@ import com.damai.exception.DaMaiFrameException;
 import com.damai.redis.RedisCache;
 import com.damai.redis.RedisKeyBuild;
 import com.damai.service.ProgramService;
-import com.damai.service.composite.AbstractProgramCheckHandler;
 import com.damai.service.tool.TokenExpireManager;
 import com.damai.vo.AccountOrderCountVo;
 import com.damai.vo.ProgramVo;
@@ -33,8 +32,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-public class ProgramUserExistCheckHandler extends AbstractProgramCheckHandler {
-
+public class ProgramUserExistCheckHandler extends ProgramOrderCheckHandler {
     @Autowired
     private RedisCache redisCache;
 
@@ -51,7 +49,7 @@ public class ProgramUserExistCheckHandler extends AbstractProgramCheckHandler {
     private TokenExpireManager tokenExpireManager;
 
     @Override
-    protected void execute(ProgramOrderCreateDto programOrderCreateDto) {
+    protected void check(ProgramOrderCreateDto programOrderCreateDto) {
         // 先从缓存中查询当前用户的购票人信息
         List<TicketUserVo> ticketUserVoList = redisCache.getValueIsList(
                 RedisKeyBuild.createRedisKey(RedisKeyManage.TICKET_USER_LIST, programOrderCreateDto.getUserId()),
@@ -82,57 +80,42 @@ public class ProgramUserExistCheckHandler extends AbstractProgramCheckHandler {
         }
 
         // 统计购买数量是否超过票数限制
-        ProgramGetDto programGetDto = new ProgramGetDto();
-        programGetDto.setId(programOrderCreateDto.getProgramId());
-        ProgramVo programVo = programService.detailV2(programGetDto);
-        if(Objects.isNull(programVo)){
-            throw new DaMaiFrameException(BaseCode.PROGRAM_NOT_EXIST);
-        }
-        Integer count = 0;
-        if(redisCache.hasKey(RedisKeyBuild.createRedisKey(RedisKeyManage.ACCOUNT_ORDER_COUNT, programOrderCreateDto.getUserId(), programOrderCreateDto.getProgramId()))) {
-            count = redisCache.get(RedisKeyBuild.createRedisKey(RedisKeyManage.ACCOUNT_ORDER_COUNT, programOrderCreateDto.getUserId(), programOrderCreateDto.getProgramId()), Integer.class);
-        } else{
-            AccountOrderCountDto accountOrderCountDto = new AccountOrderCountDto();
-            accountOrderCountDto.setUserId(programOrderCreateDto.getUserId());
-            accountOrderCountDto.setProgramId(programOrderCreateDto.getProgramId());
-            ApiResponse<AccountOrderCountVo> apiResponse = orderClient.accountOrderCount(accountOrderCountDto);
-            if(Objects.equals(apiResponse.getCode(), BaseCode.SUCCESS.getCode())) {
-                count = Optional.ofNullable(apiResponse.getData()).map(AccountOrderCountVo::getCount).orElse(0);
-                redisCache.set(
-                        RedisKeyBuild.createRedisKey(RedisKeyManage.ACCOUNT_ORDER_COUNT, programOrderCreateDto.getUserId(), programOrderCreateDto.getProgramId()),
-                        count,
-                        tokenExpireManager.getTokenExpireTime() + 1,
-                        TimeUnit.MINUTES);
-            }
-        }
-
-        Integer seatCount = Optional.ofNullable(programOrderCreateDto.getSeatDtoList()).map(List::size).orElse(0);
-        Integer ticketCount = Optional.ofNullable(programOrderCreateDto.getTicketCount()).orElse(0);
-
-        if(seatCount != 0){
-            count += seatCount;
-        }
-        else if(ticketCount != 0){
-            count += ticketCount;
-        }
-
-        if(count > programVo.getPerAccountLimitPurchaseCount()) {
-            throw new DaMaiFrameException(BaseCode.PER_ACCOUNT_PURCHASE_COUNT_OVER_LIMIT);
-        }
-    }
-
-    @Override
-    public Integer executeParentOrder() {
-        return 1;
-    }
-
-    @Override
-    public Integer executeTier() {
-        return 2;
-    }
-
-    @Override
-    public Integer executeOrder() {
-        return 2;
+//        ProgramGetDto programGetDto = new ProgramGetDto();
+//        programGetDto.setId(programOrderCreateDto.getProgramId());
+//        ProgramVo programVo = programService.detailV2(programGetDto);
+//        if(Objects.isNull(programVo)){
+//            throw new DaMaiFrameException(BaseCode.PROGRAM_NOT_EXIST);
+//        }
+//        Integer count = 0;
+//        if(redisCache.hasKey(RedisKeyBuild.createRedisKey(RedisKeyManage.ACCOUNT_ORDER_COUNT, programOrderCreateDto.getUserId(), programOrderCreateDto.getProgramId()))) {
+//            count = redisCache.get(RedisKeyBuild.createRedisKey(RedisKeyManage.ACCOUNT_ORDER_COUNT, programOrderCreateDto.getUserId(), programOrderCreateDto.getProgramId()), Integer.class);
+//        } else{
+//            AccountOrderCountDto accountOrderCountDto = new AccountOrderCountDto();
+//            accountOrderCountDto.setUserId(programOrderCreateDto.getUserId());
+//            accountOrderCountDto.setProgramId(programOrderCreateDto.getProgramId());
+//            ApiResponse<AccountOrderCountVo> apiResponse = orderClient.accountOrderCount(accountOrderCountDto);
+//            if(Objects.equals(apiResponse.getCode(), BaseCode.SUCCESS.getCode())) {
+//                count = Optional.ofNullable(apiResponse.getData()).map(AccountOrderCountVo::getCount).orElse(0);
+//                redisCache.set(
+//                        RedisKeyBuild.createRedisKey(RedisKeyManage.ACCOUNT_ORDER_COUNT, programOrderCreateDto.getUserId(), programOrderCreateDto.getProgramId()),
+//                        count,
+//                        tokenExpireManager.getTokenExpireTime() + 1,
+//                        TimeUnit.MINUTES);
+//            }
+//        }
+//
+//        Integer seatCount = Optional.ofNullable(programOrderCreateDto.getSeatDtoList()).map(List::size).orElse(0);
+//        Integer ticketCount = Optional.ofNullable(programOrderCreateDto.getTicketCount()).orElse(0);
+//
+//        if(seatCount != 0){
+//            count += seatCount;
+//        }
+//        else if(ticketCount != 0){
+//            count += ticketCount;
+//        }
+//
+//        if(count > programVo.getPerAccountLimitPurchaseCount()) {
+//            throw new DaMaiFrameException(BaseCode.PER_ACCOUNT_PURCHASE_COUNT_OVER_LIMIT);
+//        }
     }
 }

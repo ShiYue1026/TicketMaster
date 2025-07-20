@@ -1,11 +1,10 @@
-package com.damai.service.composite.impl;
+package com.damai.service.composite.chain;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.damai.dto.ProgramOrderCreateDto;
 import com.damai.dto.SeatDto;
 import com.damai.enums.BaseCode;
 import com.damai.exception.DaMaiFrameException;
-import com.damai.service.composite.AbstractProgramCheckHandler;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -14,9 +13,9 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Component
-public class ProgramOrderCreateParamCheckHandler extends AbstractProgramCheckHandler {
+public class ProgramOrderCreateParamCheckHandler extends ProgramOrderCheckHandler {
     @Override
-    protected void execute(ProgramOrderCreateDto programOrderCreateDto) {
+    protected void check(ProgramOrderCreateDto programOrderCreateDto) {
         List<SeatDto> seatDtoList = programOrderCreateDto.getSeatDtoList();
         List<Long> ticketUserIdList = programOrderCreateDto.getTicketUserIdList();
         Map<Long, List<Long>> ticketUserIdMap =
@@ -60,20 +59,5 @@ public class ProgramOrderCreateParamCheckHandler extends AbstractProgramCheckHan
                 throw new DaMaiFrameException(BaseCode.TICKET_COUNT_ERROR);
             }
         }
-    }
-
-    @Override
-    public Integer executeParentOrder() {
-        return 0;
-    }
-
-    @Override
-    public Integer executeTier() {
-        return 1;
-    }
-
-    @Override
-    public Integer executeOrder() {
-        return 1;
     }
 }

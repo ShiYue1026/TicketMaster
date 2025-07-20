@@ -1,5 +1,6 @@
 package com.damai.service.es;
 
+import cn.hutool.core.collection.CollectionUtil;
 import com.damai.core.SpringUtil;
 import com.damai.dto.*;
 import com.damai.enums.BusinessStatus;
@@ -292,5 +293,31 @@ public class ProgramEs {
             log.error("recommendList error",e);
         }
         return programListVoList;
+    }
+
+    public void deleteByProgramId(Long programId){
+        try {
+            List<EsDataQueryDto> esDataQueryDtoList = new ArrayList<>();
+            EsDataQueryDto programIdDto = new EsDataQueryDto();
+            programIdDto.setParamName(ProgramDocumentParamName.ID);
+            programIdDto.setParamValue(programId);
+            esDataQueryDtoList.add(programIdDto);
+
+            List<ProgramListVo> programListVos =
+                    businessEsHandle.query(
+                            SpringUtil.getPrefixDistinctionName() + "-" + ProgramDocumentParamName.INDEX_NAME,
+                            ProgramDocumentParamName.INDEX_TYPE,
+                            esDataQueryDtoList,
+                            ProgramListVo.class);
+            if (CollectionUtil.isNotEmpty(programListVos)) {
+                for (ProgramListVo programListVo : programListVos) {
+                    businessEsHandle.deleteByDocumentId(
+                            SpringUtil.getPrefixDistinctionName() + "-" + ProgramDocumentParamName.INDEX_NAME,
+                            programListVo.getEsId());
+                }
+            }
+        }catch (Exception e) {
+            log.error("deleteByProgramId error",e);
+        }
     }
 }

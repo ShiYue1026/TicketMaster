@@ -12,9 +12,7 @@ import com.damai.core.RedisKeyManage;
 import com.damai.core.RepeatExecuteLimitConstants;
 import com.damai.dto.*;
 import com.damai.entity.ProgramShowTime;
-import com.damai.entity.Seat;
 import com.damai.enums.BaseCode;
-import com.damai.enums.CompositeCheckType;
 import com.damai.enums.OrderStatus;
 import com.damai.enums.SellStatus;
 import com.damai.exception.DaMaiFrameException;
@@ -25,6 +23,9 @@ import com.damai.lua.ProgramCacheCreateOrderResolutionOperate;
 import com.damai.lua.ProgramCacheResolutionOperate;
 import com.damai.redis.RedisKeyBuild;
 import com.damai.repeatexecutelimit.annotation.RepeatExecuteLimit;
+import com.damai.service.composite.chain.ProgramDetailCheckHandler;
+import com.damai.service.composite.chain.ProgramOrderCreateParamCheckHandler;
+import com.damai.service.composite.chain.ProgramUserExistCheckHandler;
 import com.damai.service.delaysend.DelayOrderCancelSend;
 import com.damai.service.kafka.CreateOrderMqDomain;
 import com.damai.service.kafka.CreateOrderSend;
@@ -65,7 +66,7 @@ public class ProgramOrderService {
     private TicketCategoryService ticketCategoryService;
 
     @Autowired
-    private SeatService seatService;
+    private  SeatService seatService;
 
     @Autowired
     private ProgramCacheResolutionOperate programCacheResolutionOperate;
@@ -101,13 +102,28 @@ public class ProgramOrderService {
     @Autowired
     private CreateOrderSend createOrderSend;
 
+    @Autowired
+    private ProgramOrderCreateParamCheckHandler programOrderCreateParamCheckHandler;
+
+    @Autowired
+    private ProgramDetailCheckHandler programDetailCheckHandler;
+
+    @Autowired
+    private ProgramUserExistCheckHandler programUserExistCheckHandler;
+
     @RepeatExecuteLimit(
             name = RepeatExecuteLimitConstants.CREATE_PROGRAM_ORDER,
             keys = {"#programOrderCreateDto.userId","#programOrderCreateDto.programId"})
     @ServiceLock(name = PROGRAM_ORDER_CREATE_V1,keys = {"#programOrderCreateDto.programId"})
     public String createV1(ProgramOrderCreateDto programOrderCreateDto) {
         log.info("生成订单版本: V1");
-        compositeContainer.execute(CompositeCheckType.PROGRAM_ORDER_CREATE_CHECK.getValue(),programOrderCreateDto);
+//        compositeContainer.execute(CompositeCheckType.PROGRAM_ORDER_CREATE_CHECK.getValue(),programOrderCreateDto);
+
+        // 责任链模式进行验证
+        programOrderCreateParamCheckHandler.setNextHandler(programDetailCheckHandler);
+        programDetailCheckHandler.setNextHandler(programUserExistCheckHandler);
+        programOrderCreateParamCheckHandler.execute(programOrderCreateDto);
+
         return create(programOrderCreateDto);
     }
 
@@ -116,7 +132,12 @@ public class ProgramOrderService {
             keys = {"#programOrderCreateDto.userId","#programOrderCreateDto.programId"})
     public String createV2(ProgramOrderCreateDto programOrderCreateDto) {
         log.info("生成订单版本: V2");
-        compositeContainer.execute(CompositeCheckType.PROGRAM_ORDER_CREATE_CHECK.getValue(), programOrderCreateDto);
+
+        // 责任链模式进行验证
+        programOrderCreateParamCheckHandler.setNextHandler(programDetailCheckHandler);
+        programDetailCheckHandler.setNextHandler(programUserExistCheckHandler);
+        programOrderCreateParamCheckHandler.execute(programOrderCreateDto);
+
         List<SeatDto> seatDtoList = programOrderCreateDto.getSeatDtoList();
         List<Long> ticketCategoryIdList = new ArrayList<>();
         if(CollectionUtil.isNotEmpty(seatDtoList)){  // 手动选座
@@ -181,7 +202,12 @@ public class ProgramOrderService {
             keys = {"#programOrderCreateDto.userId","#programOrderCreateDto.programId"})
     public String createV3(ProgramOrderCreateDto programOrderCreateDto) {
         log.info("生成订单版本: V3");
-        compositeContainer.execute(CompositeCheckType.PROGRAM_ORDER_CREATE_CHECK.getValue(), programOrderCreateDto);
+
+        // 责任链模式进行验证
+        programOrderCreateParamCheckHandler.setNextHandler(programDetailCheckHandler);
+        programDetailCheckHandler.setNextHandler(programUserExistCheckHandler);
+        programOrderCreateParamCheckHandler.execute(programOrderCreateDto);
+
         return baseProgramOrder.localLockCreateOrder(PROGRAM_ORDER_CREATE_V3, programOrderCreateDto, () -> createNew(programOrderCreateDto));
     }
 
@@ -190,7 +216,12 @@ public class ProgramOrderService {
             keys = {"#programOrderCreateDto.userId","#programOrderCreateDto.programId"})
     public String createV4(ProgramOrderCreateDto programOrderCreateDto) {
         log.info("生成订单版本: V4");
-        compositeContainer.execute(CompositeCheckType.PROGRAM_ORDER_CREATE_CHECK.getValue(), programOrderCreateDto);
+
+        // 责任链模式进行验证
+        programOrderCreateParamCheckHandler.setNextHandler(programDetailCheckHandler);
+        programDetailCheckHandler.setNextHandler(programUserExistCheckHandler);
+        programOrderCreateParamCheckHandler.execute(programOrderCreateDto);
+
         return baseProgramOrder.localLockCreateOrder(PROGRAM_ORDER_CREATE_V4, programOrderCreateDto, () -> createNewAsync(programOrderCreateDto));
     }
 
@@ -215,19 +246,18 @@ public class ProgramOrderService {
         return orderNumber;
     }
 
-    private String createOrderByMq(OrderCreateDto orderCreateDto, List<SeatVo> purchaseSeatList) {
+    private String createOrderByMq(OrderCreateDto orderCreateDto,List<SeatVo> purchaseSeatList){
         CreateOrderMqDomain createOrderMqDomain = new CreateOrderMqDomain();
         CountDownLatch latch = new CountDownLatch(1);
-        createOrderSend.sendMessage(JSON.toJSONString(orderCreateDto), sendResult -> {
+        createOrderSend.sendMessage(com.alibaba.fastjson.JSON.toJSONString(orderCreateDto), sendResult -> {
             createOrderMqDomain.orderNumber = String.valueOf(orderCreateDto.getOrderNumber());
             assert sendResult != null;
             log.info("创建订单kafka发送消息成功 topic : {}",sendResult.getRecordMetadata().topic());
             latch.countDown();
-        }, ex -> {
+        },ex -> {
             log.error("创建订单kafka发送消息失败 error",ex);
             log.error("创建订单失败 需人工处理 orderCreateDto : {}", com.alibaba.fastjson.JSON.toJSONString(orderCreateDto));
-            // 恢复被锁定的座位状态
-            updateProgramCacheDataResolution(orderCreateDto.getProgramId(), purchaseSeatList, OrderStatus.CANCEL);
+            updateProgramCacheDataResolution(orderCreateDto.getProgramId(),purchaseSeatList,OrderStatus.CANCEL);
             createOrderMqDomain.daMaiFrameException = new DaMaiFrameException(ex);
             latch.countDown();
         });
@@ -237,12 +267,11 @@ public class ProgramOrderService {
             log.error("createOrderByMq InterruptedException",e);
             throw new DaMaiFrameException(e);
         }
-        if(Objects.nonNull(createOrderMqDomain.daMaiFrameException)) {
+        if (Objects.nonNull(createOrderMqDomain.daMaiFrameException)) {
             throw createOrderMqDomain.daMaiFrameException;
         }
         return createOrderMqDomain.orderNumber;
     }
-
 
     private List<SeatVo> createOrderOperateProgramCacheResolution(ProgramOrderCreateDto programOrderCreateDto) {
         // 从本地缓存中获取节目演出时间（之前已经放入本地缓存）
@@ -405,7 +434,6 @@ public class ProgramOrderService {
         DelayOrderCancelDto delayOrderCancelDto = new DelayOrderCancelDto();
         delayOrderCancelDto.setOrderNumber(orderCreateDto.getOrderNumber());
         delayOrderCancelSend.sendMessage(JSON.toJSONString(delayOrderCancelDto));
-
         return orderNumber;
     }
 

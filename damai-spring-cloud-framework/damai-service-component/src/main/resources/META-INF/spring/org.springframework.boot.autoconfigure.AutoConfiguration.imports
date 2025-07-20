@@ -1,1 +1,2 @@
 com.damai.filter.FilterAutoConfiguration
+com.damai.feign.ExtraFeignAutoConfiguration

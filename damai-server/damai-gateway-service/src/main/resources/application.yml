@@ -18,9 +18,13 @@ spring:
   data:
     redis:
       database: 0
-      host: 192.168.88.130
+      host: 127.0.0.1
       port: 6379
       timeout: 3000
+#      sentinel:
+#        nodes: 192.168.88.130:26379
+#        password: root
+#        master: mymaster
   cloud:
     nacos:
       discovery:
@@ -56,6 +60,28 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     topic: save_api_data
 
+management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  endpoints:
+    #暴露所有端点信息
+    enabled-by-default: true
+    web:
+      exposure:
+        include: '*'
+    health:
+      show-details: always
+  security:
+    enabled: false
+  health:
+    elasticsearch:
+      enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
 # knife4j 网关聚合
 knife4j:
   gateway:
@@ -70,3 +96,7 @@ knife4j:
 api:
   limit:
     paths: /**/customize/test/test
+
+logging:
+  level:
+    org.springframework.data.redis: DEBUG

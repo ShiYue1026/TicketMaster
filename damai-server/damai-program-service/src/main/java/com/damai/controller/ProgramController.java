@@ -4,6 +4,7 @@ import com.damai.common.ApiResponse;
 import com.damai.dto.*;
 import com.damai.page.PageVo;
 import com.damai.service.ProgramService;
+import com.damai.service.TestService;
 import com.damai.vo.ProgramHomeVo;
 import com.damai.vo.ProgramListVo;
 import com.damai.vo.ProgramVo;
@@ -25,6 +26,9 @@ public class ProgramController {
 
     @Autowired
     ProgramService programService;
+
+    @Autowired
+    TestService testService;
 
     @Operation(summary = "查询主页列表")
     @PostMapping(value = "/home/list")
@@ -54,6 +58,24 @@ public class ProgramController {
     @PostMapping(value = "/recommend/list")
     public ApiResponse<List<ProgramListVo>> recommendList(@Valid @RequestBody ProgramRecommendListDto programRecommendListDto){
         return ApiResponse.ok(programService.recommendList(programRecommendListDto));
+    }
+
+    @Operation(summary = "节目失效")
+    @PostMapping(value = "/invalid")
+    public ApiResponse<Boolean> invalid(@Valid @RequestBody ProgramInvalidDto programInvalidDto) {
+        return ApiResponse.ok(programService.invalid(programInvalidDto));
+    }
+
+    @Operation(summary = "查看节目详情本地缓存")
+    @PostMapping(value = "/local/detail")
+    public ApiResponse<ProgramVo> localDetail(@Valid @RequestBody ProgramGetDto programGetDto) {
+        return ApiResponse.ok(programService.localDetail(programGetDto));
+    }
+
+
+    @PostMapping("/testSend")
+    public ApiResponse<Boolean> testSend(TestSendDto testSendDto) {
+        return ApiResponse.ok(testService.testSend(testSendDto));
     }
 
 }

@@ -22,6 +22,14 @@ spring:
       jedis:
         pool:
           max-active: 300
+
+#      sentinel:
+#        nodes: 192.168.88.130:26379
+#        password: root
+#        master: mymaster
+      stream:
+        streamName: invalid_program
+        consumer-type: broadcast
   cloud:
     nacos:
       discovery:
@@ -41,14 +49,37 @@ spring:
     topic: create_order
 
 management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  endpoints:
+    #暴露所有端点信息
+    enabled-by-default: true
+    web:
+      exposure:
+        include: '*'
+    health:
+      show-details: always
+  security:
+    enabled: false
   health:
     elasticsearch:
       enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 elasticsearch:
   ip: 192.168.88.130:9200
   userName: elastic
   passWord: elastic
+
+delay:
+  queue:
+    corePoolSize: 4
+    maximumPoolSize: 8
+    isolation-region-count: 2
 
 springdoc:
   swagger-ui:

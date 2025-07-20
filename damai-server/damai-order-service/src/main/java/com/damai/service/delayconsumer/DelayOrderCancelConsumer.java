@@ -22,7 +22,6 @@ public class DelayOrderCancelConsumer implements ConsumerTask {
     
     @Override
     public void execute(String content) {
-        log.info("延迟订单取消消息进行消费 content : {}", content);
         if (StringUtil.isEmpty(content)) {
             log.error("延迟队列消息不存在");
             return;

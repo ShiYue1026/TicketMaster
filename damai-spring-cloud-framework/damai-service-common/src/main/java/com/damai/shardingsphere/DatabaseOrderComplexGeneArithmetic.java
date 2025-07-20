@@ -27,6 +27,7 @@ public class DatabaseOrderComplexGeneArithmetic implements ComplexKeysShardingAl
     @Override
     public Collection<String> doSharding(Collection<String> allActualSplitDatabaseNames, ComplexKeysShardingValue<Long> complexKeysShardingValue) {
         List<String> actualDatabaseNames = new ArrayList<>(allActualSplitDatabaseNames.size());
+        // 获取分片键值
         Map<String, Collection<Long>> columnNameAndShardingValueMap = complexKeysShardingValue.getColumnNameAndShardingValuesMap();
 
         if(CollectionUtil.isEmpty(columnNameAndShardingValueMap)){

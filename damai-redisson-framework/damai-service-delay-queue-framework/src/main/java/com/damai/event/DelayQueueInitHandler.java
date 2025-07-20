@@ -20,18 +20,22 @@ public class DelayQueueInitHandler implements ApplicationListener<ApplicationSta
 
     @Override
     public void onApplicationEvent(ApplicationStartedEvent event) {
-        log.info("延迟消费队列初始化...");
 
         Map<String, ConsumerTask> consumerTaskMap = event.getApplicationContext().getBeansOfType(ConsumerTask.class);
         if (CollectionUtil.isEmpty(consumerTaskMap)) {
             return;
         }
-
         for (ConsumerTask consumerTask : consumerTaskMap.values()) {
-            log.info("消费队列：{}", consumerTask.topic());
-            DelayQueuePart delayQueuePart = new DelayQueuePart(delayQueueBasePart, consumerTask);
-            DelayConsumerQueue delayConsumerQueue = new DelayConsumerQueue(delayQueuePart, delayQueuePart.getConsumerTask().topic());
-            delayConsumerQueue.listenStart();
+            log.info("初始化延迟消费队列: {}", consumerTask.topic());
+            DelayQueuePart delayQueuePart = new DelayQueuePart(delayQueueBasePart,consumerTask);
+            Integer isolationRegionCount = delayQueuePart.getDelayQueueBasePart().getDelayQueueProperties()
+                    .getIsolationRegionCount();
+
+            for(int i = 0; i < isolationRegionCount; i++) {
+                DelayConsumerQueue delayConsumerQueue = new DelayConsumerQueue(delayQueuePart,
+                        delayQueuePart.getConsumerTask().topic() + "-" + i);
+                delayConsumerQueue.listenStart();
+            }
         }
     }
 }
